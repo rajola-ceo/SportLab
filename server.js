@@ -1,47 +1,79 @@
 'use strict';
 
+// ═══════════════════════════════════════════════════════════════
+// IMPORTS
+// ═══════════════════════════════════════════════════════════════
+
+const express     = require('express');
+const helmet      = require('helmet');
+const compression = require('compression');
+const cors        = require('cors');
+const rateLimit   = require('express-rate-limit');
+const { URL }     = require('url');
+
 require('dotenv').config();
 
-const express = require('express');
-const https   = require('https');
-const http    = require('http');
-const { URL } = require('url');
-
 // ═══════════════════════════════════════════════════════════════
-// BOOTSTRAP
+// STARTUP VALIDATION
 // ═══════════════════════════════════════════════════════════════
 
-const app  = express();
-const PORT = process.env.PORT || 3000;
-const ENV  = process.env.NODE_ENV || 'development';
-const IS_PROD = ENV === 'production';
+const REQUIRED_KEYS = {
+  API_FOOTBALL_KEY : 'API-Football (live matches, fixtures, standings)',
+  SPORTMONKS_KEY   : 'SportMonks (fallback data, player info)',
+  YOUTUBE_KEY      : 'YouTube Data API (highlights search)',
+};
 
-app.disable('x-powered-by');
-app.set('trust proxy', 1);
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: false, limit: '10kb' }));
+for (const [key, desc] of Object.entries(REQUIRED_KEYS)) {
+  if (!process.env[key]) {
+    console.warn(`[WARN] Missing env var: ${key} — ${desc} will not work.`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════════════════════════
+
+const CONFIG = Object.freeze({
+  PORT        : parseInt(process.env.PORT, 10) || 3000,
+  ENV         : process.env.NODE_ENV || 'development',
+  IS_PROD     : process.env.NODE_ENV === 'production',
+  ALLOWED_ORIGINS : process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+    : ['*'],
+  KEYS : {
+    AF : process.env.API_FOOTBALL_KEY  || '',
+    SM : process.env.SPORTMONKS_KEY    || '',
+    YT : process.env.YOUTUBE_KEY       || '',
+  },
+});
 
 // ═══════════════════════════════════════════════════════════════
 // LOGGER
 // ═══════════════════════════════════════════════════════════════
 
-const log = {
-  info  : (...a) => console.log(`[${new Date().toISOString()}] [INFO]`, ...a),
-  warn  : (...a) => console.warn(`[${new Date().toISOString()}] [WARN]`, ...a),
-  error : (...a) => console.error(`[${new Date().toISOString()}] [ERROR]`, ...a),
+const logger = {
+  _fmt : (level, ...args) =>
+    `[${new Date().toISOString()}] [${level}]` +
+    args.map(a => (typeof a === 'object' ? ' ' + JSON.stringify(a) : ' ' + String(a))).join(''),
+  info  : (...a) => console.log(logger._fmt('INFO',  ...a)),
+  warn  : (...a) => console.warn(logger._fmt('WARN',  ...a)),
+  error : (...a) => console.error(logger._fmt('ERROR', ...a)),
+  req   : (req) =>
+    console.log(logger._fmt('REQ', `${req.method} ${req.path}`,
+      `ip=${(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '?').split(',')[0].trim()}`)),
 };
 
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════
 
-const AF_BASE     = 'https://v3.football.api-sports.io';
-const SM_BASE     = 'https://api.sportmonks.com/v3/football';
-const ESPN_RSS    = 'https://www.espn.com/espn/rss/soccer/news';
-const YT_SEARCH   = 'https://www.googleapis.com/youtube/v3/search';
-const FAWA_BASE   = 'https://www.fawanews.com';
+const AF_BASE   = 'https://v3.football.api-sports.io';
+const SM_BASE   = 'https://api.sportmonks.com/v3/football';
+const ESPN_RSS  = 'https://www.espn.com/espn/rss/soccer/news';
+const YT_API    = 'https://www.googleapis.com/youtube/v3/search';
+const FAWA_BASE = 'https://www.fawanews.com';
 
-const TTL = {
+const TTL = Object.freeze({
   LIVE       : 20,
   FIXTURES   : 120,
   STANDINGS  : 300,
@@ -51,30 +83,24 @@ const TTL = {
   HIGHLIGHTS : 600,
   STREAMS    : 60,
   HEALTH     : 10,
-};
+  API_HEALTH : 30,
+});
 
 const BLOCKED_DOMAINS = new Set([
   'bit.ly','tinyurl.com','goo.gl','t.co','ow.ly','is.gd','buff.ly',
   'shorte.st','adf.ly','bc.vc','clicksfly.com','sh.st','ouo.io',
   'clk.sh','linkvertise.com','exe.io','za.gl','cutt.ly','rebrand.ly',
-  'url.cn','dwz.cn','lnk.to',
+  'url.cn','dwz.cn','lnk.to','mcaf.ee','db.tt','tr.im','scrnch.me',
 ]);
 
-const UNSAFE_PATTERN = /malware|phish|crack|hack|keygen|warez|xxx|porn|adult|torrent|pirat/i;
-
-const RATE = {
-  WINDOW_MS  : 60_000,
-  MAX_REQ    : 60,
-  BURST_MAX  : 10,
-  BURST_WIN  : 1_000,
-};
+const UNSAFE_RE = /malware|phish|crack|hack|keygen|warez|xxx|porn|adult|torrent|pirat/i;
 
 // ═══════════════════════════════════════════════════════════════
-// UTILITY LAYER
+// UTILITIES
 // ═══════════════════════════════════════════════════════════════
 
 function posInt(v) {
-  if (v === undefined || v === null || v === '') return null;
+  if (v == null || v === '') return null;
   const n = parseInt(v, 10);
   return !isNaN(n) && n > 0 ? n : null;
 }
@@ -94,7 +120,12 @@ function safeStr(v, max = 128) {
   return v.trim().slice(0, max).replace(/[<>"'&;\\]/g, '') || null;
 }
 
-function isValidHttpsUrl(str) {
+function getClientIp(req) {
+  return (req.headers['x-forwarded-for'] || '')
+    .split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+}
+
+function isValidStreamUrl(str) {
   if (!str || typeof str !== 'string' || str.length > 2048) return false;
   try {
     const u = new URL(str);
@@ -103,89 +134,122 @@ function isValidHttpsUrl(str) {
     if (!/\.[a-z]{2,}$/.test(host)) return false;
     const base = host.split('.').slice(-2).join('.');
     if (BLOCKED_DOMAINS.has(base) || BLOCKED_DOMAINS.has(host)) return false;
-    if (UNSAFE_PATTERN.test(str)) return false;
+    if (UNSAFE_RE.test(str)) return false;
     return true;
   } catch { return false; }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// HTTP CLIENT
-// ═══════════════════════════════════════════════════════════════
-
-function rawRequest(urlStr, opts = {}) {
-  return new Promise((resolve, reject) => {
-    let u;
-    try { u = new URL(urlStr); } catch (e) { return reject(e); }
-
-    const transport = u.protocol === 'https:' ? https : http;
-    const timeout   = opts.timeout || 10_000;
-
-    const req = transport.request({
-      hostname : u.hostname,
-      path     : u.pathname + u.search,
-      method   : opts.method || 'GET',
-      headers  : { 'Accept-Encoding': 'gzip', ...opts.headers },
-      timeout,
-    }, res => {
-      const chunks = [];
-      res.on('data',  c => chunks.push(c));
-      res.on('end',  () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }));
-      res.on('error', reject);
-    });
-
-    req.on('timeout', () => { req.destroy(); reject(new Error(`Timeout(${timeout}ms): ${urlStr}`)); });
-    req.on('error',   reject);
-    req.end();
-  });
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function getJSON(urlStr, opts = {}) {
-  const { status, body } = await rawRequest(urlStr, opts);
+// ═══════════════════════════════════════════════════════════════
+// HTTP CLIENT  (native Node 20+ fetch with timeout + retry)
+// ═══════════════════════════════════════════════════════════════
+
+const RETRY_ATTEMPTS  = 2;
+const RETRY_BASE_MS   = 300;
+const RETRYABLE_CODES = new Set([429, 500, 502, 503, 504]);
+
+async function fetchWithTimeout(urlStr, opts = {}) {
+  const timeout = opts.timeout || 10_000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const res = await fetch(urlStr, {
+      method  : opts.method || 'GET',
+      headers : opts.headers || {},
+      signal  : controller.signal,
+    });
+    return res;
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error(`Timeout(${timeout}ms): ${urlStr.split('?')[0]}`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function httpGet(urlStr, opts = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetchWithTimeout(urlStr, opts);
+
+      // Retry on transient server errors and rate limits
+      if (attempt < RETRY_ATTEMPTS && RETRYABLE_CODES.has(res.status)) {
+        const delay = RETRY_BASE_MS * Math.pow(2, attempt);
+        logger.warn(`HTTP ${res.status} from ${urlStr.split('?')[0]} — retrying in ${delay}ms (attempt ${attempt + 1}/${RETRY_ATTEMPTS})`);
+        await sleep(delay);
+        continue;
+      }
+
+      const body = await res.text();
+      return { status: res.status, body };
+    } catch (err) {
+      lastErr = err;
+      if (attempt < RETRY_ATTEMPTS) {
+        const delay = RETRY_BASE_MS * Math.pow(2, attempt);
+        logger.warn(`Network error: ${err.message} — retrying in ${delay}ms (attempt ${attempt + 1}/${RETRY_ATTEMPTS})`);
+        await sleep(delay);
+      }
+    }
+  }
+  throw lastErr || new Error(`Failed after ${RETRY_ATTEMPTS} retries: ${urlStr.split('?')[0]}`);
+}
+
+async function fetchJSON(urlStr, opts = {}) {
+  const { status, body } = await httpGet(urlStr, opts);
   let data;
   try { data = JSON.parse(body); }
-  catch { throw new Error(`Non-JSON (HTTP ${status}) from ${urlStr.split('?')[0]}`); }
+  catch { throw new Error(`Non-JSON HTTP(${status}) from ${urlStr.split('?')[0]}`); }
   return { status, data };
 }
 
-async function getText(urlStr, opts = {}) {
-  return rawRequest(urlStr, { ...opts });
+async function fetchText(urlStr, opts = {}) {
+  return httpGet(urlStr, opts);
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CACHE LAYER
+// LRU CACHE  (TTL + max-size + dedup inflight requests)
 // ═══════════════════════════════════════════════════════════════
 
-class Cache {
-  constructor() {
-    this._store = new Map();
+class LRUCache {
+  constructor({ maxSize = 256 } = {}) {
+    this._maxSize  = maxSize;
+    this._store    = new Map();   // insertion-order = LRU order
     this._inflight = new Map();
-    // purge expired entries every 2 minutes
     setInterval(() => this._purge(), 120_000).unref();
   }
 
-  _key(k) { return String(k); }
-
   get(k) {
-    const r = this._store.get(this._key(k));
+    const r = this._store.get(k);
     if (!r) return null;
-    if (Date.now() > r.exp) { this._store.delete(this._key(k)); return null; }
+    if (Date.now() > r.exp) { this._store.delete(k); return null; }
+    // Move to end (most-recently-used)
+    this._store.delete(k);
+    this._store.set(k, r);
     return r.val;
   }
 
   set(k, val, ttlSec) {
-    this._store.set(this._key(k), { val, exp: Date.now() + ttlSec * 1000 });
+    if (this._store.has(k)) this._store.delete(k);
+    // Evict oldest entry if at capacity
+    if (this._store.size >= this._maxSize) {
+      const oldest = this._store.keys().next().value;
+      this._store.delete(oldest);
+    }
+    this._store.set(k, { val, exp: Date.now() + ttlSec * 1000 });
   }
 
-  // Prevents duplicate concurrent requests to the same resource
   async dedupe(k, fn) {
-    const cached = this.get(k);
-    if (cached !== null) return { data: cached, cached: true };
-
+    const hit = this.get(k);
+    if (hit !== null) return { ...hit, cached: true };
     if (this._inflight.has(k)) return this._inflight.get(k);
-
-    const promise = fn().finally(() => this._inflight.delete(k));
-    this._inflight.set(k, promise);
-    return promise;
+    const p = fn().finally(() => this._inflight.delete(k));
+    this._inflight.set(k, p);
+    return p;
   }
 
   _purge() {
@@ -194,157 +258,121 @@ class Cache {
   }
 
   stats() {
-    return { entries: this._store.size, inflight: this._inflight.size };
+    return { entries: this._store.size, maxSize: this._maxSize, inflight: this._inflight.size };
   }
 }
 
-const cache = new Cache();
+const cache = new LRUCache({ maxSize: 256 });
 
 // ═══════════════════════════════════════════════════════════════
-// RATE LIMITER
+// MIDDLEWARE SETUP
 // ═══════════════════════════════════════════════════════════════
 
-class RateLimiter {
-  constructor() {
-    this._windows = new Map();
-    setInterval(() => this._purge(), RATE.WINDOW_MS).unref();
-  }
+// ── Helmet (security headers) ─────────────────────────────────
+const helmetMiddleware = helmet({
+  contentSecurityPolicy : { directives: { defaultSrc: ["'none'"] } },
+  crossOriginOpenerPolicy    : true,
+  crossOriginResourcePolicy  : { policy: 'cross-origin' },
+  referrerPolicy             : { policy: 'no-referrer' },
+  hsts                       : CONFIG.IS_PROD
+    ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
+    : false,
+});
 
-  _ip(req) {
-    return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-      || req.socket?.remoteAddress
-      || 'unknown';
-  }
+// ── Compression ───────────────────────────────────────────────
+const compressionMiddleware = compression({
+  level     : 6,
+  threshold : 1024,
+  filter    : (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  },
+});
 
-  check(req) {
-    const ip  = this._ip(req);
-    const now = Date.now();
-    let rec   = this._windows.get(ip);
+// ── CORS ──────────────────────────────────────────────────────
+const corsMiddleware = cors({
+  origin : (origin, callback) => {
+    if (CONFIG.ALLOWED_ORIGINS.includes('*')) return callback(null, true);
+    if (!origin || CONFIG.ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin not permitted — ${origin}`));
+  },
+  methods           : ['GET', 'OPTIONS'],
+  allowedHeaders    : ['Content-Type', 'Accept'],
+  maxAge            : 86400,
+  optionsSuccessStatus : 204,
+});
 
-    if (!rec || now > rec.winEnd) {
-      rec = { count: 0, winEnd: now + RATE.WINDOW_MS, burst: 0, burstEnd: now + RATE.BURST_WIN };
-      this._windows.set(ip, rec);
-    }
+// ── Rate Limiter ──────────────────────────────────────────────
+const rateLimitMiddleware = rateLimit({
+  windowMs         : 60_000,
+  max              : 60,
+  standardHeaders  : true,
+  legacyHeaders    : false,
+  keyGenerator     : (req) => getClientIp(req),
+  handler          : (_req, res) => {
+    res.status(429).json({ success: false, source: 'rate-limiter', cached: false,
+      error: 'Rate limit exceeded — retry in 60s.' });
+  },
+});
 
-    // burst check
-    if (now > rec.burstEnd) { rec.burst = 0; rec.burstEnd = now + RATE.BURST_WIN; }
-    rec.burst++;
-    if (rec.burst > RATE.BURST_MAX) return { allowed: false, reason: 'burst' };
-
-    rec.count++;
-    if (rec.count > RATE.MAX_REQ) return { allowed: false, reason: 'limit' };
-
-    return { allowed: true };
-  }
-
-  _purge() {
-    const now = Date.now();
-    for (const [k, v] of this._windows) if (now > v.winEnd) this._windows.delete(k);
-  }
-}
-
-const limiter = new RateLimiter();
-
-// ═══════════════════════════════════════════════════════════════
-// SECURITY MIDDLEWARE
-// ═══════════════════════════════════════════════════════════════
-
-function securityHeaders(_req, res, next) {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
-  if (IS_PROD) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+// ── Request Logger ────────────────────────────────────────────
+function requestLogger(req, _res, next) {
+  logger.req(req);
   next();
 }
 
-function corsMiddleware(req, res, next) {
-  const allowed = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
-    : ['*'];
-  const origin = req.headers.origin || '';
+// ═══════════════════════════════════════════════════════════════
+// APP INIT
+// ═══════════════════════════════════════════════════════════════
 
-  if (allowed.includes('*')) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  } else if (allowed.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
-  } else if (origin) {
-    return res.status(403).json({ success: false, error: 'Origin not allowed.' });
-  }
+const app = express();
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-  res.setHeader('Access-Control-Max-Age', '86400');
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
 
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  return next();
-}
-
-function rateLimitMiddleware(req, res, next) {
-  const { allowed, reason } = limiter.check(req);
-  if (!allowed) {
-    const msg = reason === 'burst'
-      ? 'Too many rapid requests — slow down.'
-      : 'Rate limit exceeded — try again in a minute.';
-    return res.status(429).json({ success: false, source: 'rate-limiter', error: msg });
-  }
-  return next();
-}
-
-app.use(securityHeaders);
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: false, limit: '10kb' }));
+app.use(requestLogger);
+app.use(helmetMiddleware);
 app.use(corsMiddleware);
 app.use(rateLimitMiddleware);
+app.use(compressionMiddleware);
 
 // ═══════════════════════════════════════════════════════════════
-// RESPONSE HELPERS
-// ═══════════════════════════════════════════════════════════════
-
-function send200(res, source, data, cached = false, extra = {}) {
-  return res.json({ success: true, source, cached, data, ...extra });
-}
-
-function sendErr(res, status, source, error) {
-  return res.status(status).json({ success: false, source, cached: false, error });
-}
-
-// ═══════════════════════════════════════════════════════════════
-// SERVICE LAYER — API-FOOTBALL
+// SERVICES — API-FOOTBALL
 // ═══════════════════════════════════════════════════════════════
 
 function afHeaders() {
-  return {
-    "x-rapidapi-key": process.env.API_FOOTBALL_KEY,
-    "x-rapidapi-host": "v3.football.api-sports.io"
-  };
+  return { 'x-apisports-key': CONFIG.KEYS.AF };
 }
 
 async function afGet(path) {
-  const { status, data } = await getJSON(`${AF_BASE}${path}`, { headers: afHeaders() });
-  if (status !== 200 || data.errors?.rateLimit || data.errors?.token) {
-    throw new Error(`AF(${status}): ${JSON.stringify(data?.errors || {})}`);
-  }
+  const { status, data } = await fetchJSON(`${AF_BASE}${path}`, { headers: afHeaders() });
+  if (status === 401 || status === 403) throw new Error(`AF auth error (${status})`);
+  if (status === 429) throw new Error('AF rate limit hit');
+  if (status !== 200) throw new Error(`AF HTTP ${status}`);
+  if (data?.errors?.rateLimit) throw new Error('AF rate limit (quota)');
+  if (data?.errors?.token)     throw new Error('AF invalid token');
   return data;
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SERVICE LAYER — SPORTMONKS
+// SERVICES — SPORTMONKS
 // ═══════════════════════════════════════════════════════════════
 
 async function smGet(path) {
   const sep = path.includes('?') ? '&' : '?';
-  const url = `${SM_BASE}${path}${sep}api_token=${process.env.SPORTMONKS_KEY || ''}`;
-  const { status, data } = await getJSON(url);
-  if (status !== 200) throw new Error(`SM(${status})`);
+  const url = `${SM_BASE}${path}${sep}api_token=${CONFIG.KEYS.SM}`;
+  const { status, data } = await fetchJSON(url);
+  if (status !== 200) throw new Error(`SM HTTP ${status}`);
   return data;
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SERVICE LAYER — RSS PARSER
+// SERVICES — RSS
 // ═══════════════════════════════════════════════════════════════
 
-function xmlTag(xml, tag) {
+function xmlExtract(xml, tag) {
   const re = new RegExp(
     `<${tag}(?:[^>]*)>(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([\\s\\S]*?))<\\/${tag}>`, 'i'
   );
@@ -354,28 +382,28 @@ function xmlTag(xml, tag) {
 }
 
 function parseRSS(xml) {
-  const out = [];
-  const re  = /<item>([\s\S]*?)<\/item>/gi;
+  const items = [];
+  const re    = /<item>([\s\S]*?)<\/item>/gi;
   let m;
   while ((m = re.exec(xml)) !== null) {
     const b     = m[1];
-    const title = xmlTag(b, 'title');
-    const link  = xmlTag(b, 'link');
+    const title = xmlExtract(b, 'title');
+    const link  = xmlExtract(b, 'link');
     if (!title || !link) continue;
-    const pd = xmlTag(b, 'pubDate');
-    out.push({
+    const pd = xmlExtract(b, 'pubDate');
+    items.push({
       title,
       link,
-      description : xmlTag(b, 'description').replace(/<[^>]+>/g, '').slice(0, 300),
+      description : xmlExtract(b, 'description').replace(/<[^>]+>/g, '').slice(0, 300),
       pubDate     : pd ? new Date(pd).toISOString() : null,
-      category    : xmlTag(b, 'category'),
+      category    : xmlExtract(b, 'category') || null,
     });
   }
-  return out;
+  return items;
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SERVICE LAYER — STREAM EXTRACTOR
+// SERVICES — STREAM EXTRACTOR
 // ═══════════════════════════════════════════════════════════════
 
 async function extractStreams(matchId) {
@@ -388,19 +416,19 @@ async function extractStreams(matchId) {
 
   await Promise.allSettled(endpoints.map(async ep => {
     try {
-      const { body } = await getText(ep, {
+      const { body } = await fetchText(ep, {
         headers : { 'User-Agent': 'SportLab/1.0' },
         timeout : 8_000,
       });
-      const urls = body.match(/https?:\/\/[^\s"'<>\\]+/g) || [];
-      for (const raw of urls) {
+      const found = body.match(/https?:\/\/[^\s"'<>\\]+/g) || [];
+      for (const raw of found) {
         const u = raw.replace(/['"<>\\]+$/, '');
-        if (!seen.has(u) && isValidHttpsUrl(u)) {
+        if (!seen.has(u) && isValidStreamUrl(u)) {
           seen.add(u);
           out.push({ url: u, host: new URL(u).hostname });
         }
       }
-    } catch { /* skip unreachable */ }
+    } catch { /* skip unreachable endpoint */ }
   }));
 
   return out;
@@ -410,62 +438,56 @@ async function extractStreams(matchId) {
 // NORMALIZERS
 // ═══════════════════════════════════════════════════════════════
 
-function normalizeFixture(f) {
+function normFixture(f) {
   return {
-    id       : f.fixture?.id,
-    date     : f.fixture?.date,
-    venue    : f.fixture?.venue?.name,
-    status   : f.fixture?.status,
-    elapsed  : f.fixture?.status?.elapsed,
+    id       : f.fixture?.id       ?? null,
+    date     : f.fixture?.date     ?? null,
+    venue    : f.fixture?.venue?.name ?? null,
+    status   : f.fixture?.status   ?? null,
+    elapsed  : f.fixture?.status?.elapsed ?? null,
     league   : {
-      id      : f.league?.id,
-      name    : f.league?.name,
-      country : f.league?.country,
-      logo    : f.league?.logo,
-      round   : f.league?.round,
+      id      : f.league?.id      ?? null,
+      name    : f.league?.name    ?? null,
+      country : f.league?.country ?? null,
+      logo    : f.league?.logo    ?? null,
+      round   : f.league?.round   ?? null,
     },
-    homeTeam : { id: f.teams?.home?.id, name: f.teams?.home?.name, logo: f.teams?.home?.logo },
-    awayTeam : { id: f.teams?.away?.id, name: f.teams?.away?.name, logo: f.teams?.away?.logo },
-    score    : { current: f.goals, halftime: f.score?.halftime, fulltime: f.score?.fulltime },
+    homeTeam : { id: f.teams?.home?.id ?? null, name: f.teams?.home?.name ?? null, logo: f.teams?.home?.logo ?? null },
+    awayTeam : { id: f.teams?.away?.id ?? null, name: f.teams?.away?.name ?? null, logo: f.teams?.away?.logo ?? null },
+    score    : { current: f.goals ?? null, halftime: f.score?.halftime ?? null, fulltime: f.score?.fulltime ?? null },
   };
 }
 
-function normalizeStanding(t) {
+function normStanding(t) {
   return {
-    rank         : t.rank,
-    team         : { id: t.team?.id, name: t.team?.name, logo: t.team?.logo },
-    points       : t.points,
-    goalsDiff    : t.goalsDiff,
-    form         : t.form,
-    description  : t.description,
-    played       : t.all?.played,
-    won          : t.all?.win,
-    drawn        : t.all?.draw,
-    lost         : t.all?.lose,
-    goalsFor     : t.all?.goals?.for,
-    goalsAgainst : t.all?.goals?.against,
+    rank         : t.rank         ?? null,
+    team         : { id: t.team?.id ?? null, name: t.team?.name ?? null, logo: t.team?.logo ?? null },
+    points       : t.points       ?? null,
+    goalsDiff    : t.goalsDiff    ?? null,
+    form         : t.form         ?? null,
+    description  : t.description  ?? null,
+    played       : t.all?.played  ?? null,
+    won          : t.all?.win     ?? null,
+    drawn        : t.all?.draw    ?? null,
+    lost         : t.all?.lose    ?? null,
+    goalsFor     : t.all?.goals?.for     ?? null,
+    goalsAgainst : t.all?.goals?.against ?? null,
   };
 }
 
-function normalizeLineup(t) {
+function normLineup(t) {
   return {
-    team        : { id: t.team?.id, name: t.team?.name, logo: t.team?.logo },
-    formation   : t.formation,
-    coach       : { id: t.coach?.id, name: t.coach?.name, photo: t.coach?.photo },
-    startXI     : (t.startXI || []).map(p => ({
-      id: p.player?.id, name: p.player?.name,
-      number: p.player?.number, pos: p.player?.pos, grid: p.player?.grid,
-    })),
-    substitutes : (t.substitutes || []).map(p => ({
-      id: p.player?.id, name: p.player?.name,
-      number: p.player?.number, pos: p.player?.pos,
-    })),
+    team        : { id: t.team?.id ?? null, name: t.team?.name ?? null, logo: t.team?.logo ?? null },
+    formation   : t.formation ?? null,
+    coach       : { id: t.coach?.id ?? null, name: t.coach?.name ?? null, photo: t.coach?.photo ?? null },
+    startXI     : (t.startXI     || []).map(p => ({ id: p.player?.id, name: p.player?.name, number: p.player?.number, pos: p.player?.pos, grid: p.player?.grid })),
+    substitutes : (t.substitutes || []).map(p => ({ id: p.player?.id, name: p.player?.name, number: p.player?.number, pos: p.player?.pos })),
   };
 }
 
-function normalizeStat(t) {
+function normStat(t) {
   return {
-    team       : { id: t.team?.id, name: t.team?.name, logo: t.team?.logo },
+    team       : { id: t.team?.id ?? null, name: t.team?.name ?? null, logo: t.team?.logo ?? null },
     statistics : (t.statistics || []).map(s => ({ type: s.type, value: s.value })),
   };
 }
@@ -479,37 +501,119 @@ async function withFallback(primaryFn, fallbackFn) {
     const data = await primaryFn();
     return { data, source: 'api-football' };
   } catch (pErr) {
-    log.warn('Primary source failed:', pErr.message, '— trying fallback');
+    logger.warn('Primary failed:', pErr.message, '— trying SportMonks fallback');
     try {
       const data = await fallbackFn();
       return { data, source: 'sportmonks' };
     } catch (sErr) {
-      throw new Error(`Primary: ${pErr.message} | Fallback: ${sErr.message}`);
+      throw new Error(`Primary[${pErr.message}] Fallback[${sErr.message}]`);
     }
   }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ROUTE HANDLERS
+// RESPONSE HELPERS
 // ═══════════════════════════════════════════════════════════════
 
-// ── /health ───────────────────────────────────────────────────
+function ok(res, source, data, cached = false, extra = {}) {
+  return res.json({ success: true, source, cached, data, ...extra });
+}
+
+function fail(res, status, source, error) {
+  return res.status(status).json({ success: false, source, cached: false, error });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ROUTES
+// ═══════════════════════════════════════════════════════════════
+
+// ── GET / ─────────────────────────────────────────────────────
+app.get('/', (_req, res) => {
+  return res.json({
+    success   : true,
+    message   : 'SportLab API is running 🚀',
+    endpoints : [
+      'GET /',
+      'GET /health',
+      'GET /health/apis',
+      'GET /live-matches',
+      'GET /fixtures',
+      'GET /standings',
+      'GET /lineups',
+      'GET /stats',
+      'GET /news',
+      'GET /highlights',
+      'GET /streams',
+    ],
+  });
+});
+
+// ── GET /health ───────────────────────────────────────────────
 app.get('/health', (_req, res) => {
-  return send200(res, 'sportlab', {
-    status    : 'operational',
-    env       : ENV,
-    uptime    : Math.floor(process.uptime()),
-    memory    : process.memoryUsage().heapUsed,
-    cache     : cache.stats(),
-    keys      : {
-      apiFootball : !!process.env.API_FOOTBALL_KEY,
-      sportMonks  : !!process.env.SPORTMONKS_KEY,
-      youtube     : !!process.env.YOUTUBE_KEY,
+  return ok(res, 'sportlab', {
+    status  : 'operational',
+    env     : CONFIG.ENV,
+    uptime  : Math.floor(process.uptime()),
+    memory  : {
+      heapUsed  : process.memoryUsage().heapUsed,
+      heapTotal : process.memoryUsage().heapTotal,
+      rss       : process.memoryUsage().rss,
+    },
+    cache   : cache.stats(),
+    keys    : {
+      apiFootball : !!CONFIG.KEYS.AF,
+      sportMonks  : !!CONFIG.KEYS.SM,
+      youtube     : !!CONFIG.KEYS.YT,
     },
   });
 });
 
-// ── /live-matches ─────────────────────────────────────────────
+// ── GET /health/apis ──────────────────────────────────────────
+app.get('/health/apis', async (_req, res) => {
+  const KEY = 'health:apis';
+  try {
+    const result = await cache.dedupe(KEY, async () => {
+
+      async function probeApi(urlStr, fetchOpts = {}) {
+        const start = Date.now();
+        try {
+          const { status, data } = await fetchJSON(urlStr, { ...fetchOpts, timeout: 8_000 });
+          const responseTime = Date.now() - start;
+          const ok = status === 200;
+          const message = !ok
+            ? (data?.message || data?.error?.message || data?.errors?.token || `HTTP ${status}`)
+            : null;
+          return { ok, status, responseTime, message };
+        } catch (err) {
+          return { ok: false, status: null, responseTime: Date.now() - start, message: err.message };
+        }
+      }
+
+      const [afResult, smResult, ytResult] = await Promise.all([
+        probeApi(`${AF_BASE}/status`, { headers: afHeaders() }),
+        probeApi(`${SM_BASE}/leagues?api_token=${CONFIG.KEYS.SM}&per_page=1`),
+        probeApi(`${YT_API}?part=snippet&q=test&maxResults=1&key=${CONFIG.KEYS.YT}`),
+      ]);
+
+      const data = {
+        results : {
+          apiFootball : afResult,
+          sportMonks  : smResult,
+          youtube     : ytResult,
+        },
+      };
+
+      cache.set(KEY, { data, source: 'health' }, TTL.API_HEALTH);
+      return { data, source: 'health', cached: false };
+    });
+    return ok(res, result.source, result.data, result.cached === true);
+  } catch (err) {
+    logger.error('/health/apis', err.message);
+    return fail(res, 502, 'health/apis', err.message);
+  }
+});
+
+// ── GET /live-matches ─────────────────────────────────────────
 app.get('/live-matches', async (_req, res) => {
   const KEY = 'live:all';
   try {
@@ -517,7 +621,7 @@ app.get('/live-matches', async (_req, res) => {
       const { data, source } = await withFallback(
         async () => {
           const r = await afGet('/fixtures?live=all');
-          return (r.response || []).map(normalizeFixture);
+          return (r.response || []).map(normFixture);
         },
         async () => {
           const r = await smGet('/livescores/inplay');
@@ -527,14 +631,14 @@ app.get('/live-matches', async (_req, res) => {
       cache.set(KEY, { data, source }, TTL.LIVE);
       return { data, source, cached: false };
     });
-    return send200(res, result.source, result.data, result.cached === true);
+    return ok(res, result.source, result.data, result.cached === true);
   } catch (err) {
-    log.error('/live-matches', err.message);
-    return sendErr(res, 502, 'live-matches', err.message);
+    logger.error('/live-matches', err.message);
+    return fail(res, 502, 'live-matches', err.message);
   }
 });
 
-// ── /fixtures ─────────────────────────────────────────────────
+// ── GET /fixtures ─────────────────────────────────────────────
 app.get('/fixtures', async (req, res) => {
   const league = posInt(req.query.league);
   const season = safeYear(req.query.season);
@@ -551,7 +655,7 @@ app.get('/fixtures', async (req, res) => {
       const { data, source } = await withFallback(
         async () => {
           const r = await afGet(`/fixtures?${qs}`);
-          return (r.response || []).map(normalizeFixture);
+          return (r.response || []).map(normFixture);
         },
         async () => {
           const smQs = new URLSearchParams({ per_page: String(next) });
@@ -563,17 +667,17 @@ app.get('/fixtures', async (req, res) => {
       cache.set(KEY, { data, source }, TTL.FIXTURES);
       return { data, source, cached: false };
     });
-    return send200(res, result.source, result.data, result.cached === true);
+    return ok(res, result.source, result.data, result.cached === true);
   } catch (err) {
-    log.error('/fixtures', err.message);
-    return sendErr(res, 502, 'fixtures', err.message);
+    logger.error('/fixtures', err.message);
+    return fail(res, 502, 'fixtures', err.message);
   }
 });
 
-// ── /standings ────────────────────────────────────────────────
+// ── GET /standings ────────────────────────────────────────────
 app.get('/standings', async (req, res) => {
   const league = posInt(req.query.league);
-  if (!league) return sendErr(res, 400, 'validation', 'Query param "league" is required (positive integer).');
+  if (!league) return fail(res, 400, 'validation', 'Query param "league" is required (positive integer).');
 
   const season = safeYear(req.query.season);
   const KEY    = `standings:${league}:${season}`;
@@ -584,7 +688,7 @@ app.get('/standings', async (req, res) => {
         async () => {
           const r   = await afGet(`/standings?league=${league}&season=${season}`);
           const raw = (r.response || [])[0]?.league?.standings || [];
-          return raw.flat().map(normalizeStanding);
+          return raw.flat().map(normStanding);
         },
         async () => {
           const r = await smGet(`/standings/seasons/by/league_id/${league}`);
@@ -594,17 +698,17 @@ app.get('/standings', async (req, res) => {
       cache.set(KEY, { data, source }, TTL.STANDINGS);
       return { data, source, cached: false };
     });
-    return send200(res, result.source, result.data, result.cached === true);
+    return ok(res, result.source, result.data, result.cached === true);
   } catch (err) {
-    log.error('/standings', err.message);
-    return sendErr(res, 502, 'standings', err.message);
+    logger.error('/standings', err.message);
+    return fail(res, 502, 'standings', err.message);
   }
 });
 
-// ── /lineups ──────────────────────────────────────────────────
+// ── GET /lineups ──────────────────────────────────────────────
 app.get('/lineups', async (req, res) => {
   const fixture = posInt(req.query.fixture);
-  if (!fixture) return sendErr(res, 400, 'validation', 'Query param "fixture" is required (positive integer).');
+  if (!fixture) return fail(res, 400, 'validation', 'Query param "fixture" is required (positive integer).');
 
   const KEY = `lineups:${fixture}`;
   try {
@@ -612,7 +716,7 @@ app.get('/lineups', async (req, res) => {
       const { data, source } = await withFallback(
         async () => {
           const r = await afGet(`/fixtures/lineups?fixture=${fixture}`);
-          return (r.response || []).map(normalizeLineup);
+          return (r.response || []).map(normLineup);
         },
         async () => {
           const r = await smGet(`/lineups/fixtures/${fixture}`);
@@ -622,17 +726,17 @@ app.get('/lineups', async (req, res) => {
       cache.set(KEY, { data, source }, TTL.LINEUPS);
       return { data, source, cached: false };
     });
-    return send200(res, result.source, result.data, result.cached === true);
+    return ok(res, result.source, result.data, result.cached === true);
   } catch (err) {
-    log.error('/lineups', err.message);
-    return sendErr(res, 502, 'lineups', err.message);
+    logger.error('/lineups', err.message);
+    return fail(res, 502, 'lineups', err.message);
   }
 });
 
-// ── /stats ────────────────────────────────────────────────────
+// ── GET /stats ────────────────────────────────────────────────
 app.get('/stats', async (req, res) => {
   const fixture = posInt(req.query.fixture);
-  if (!fixture) return sendErr(res, 400, 'validation', 'Query param "fixture" is required (positive integer).');
+  if (!fixture) return fail(res, 400, 'validation', 'Query param "fixture" is required (positive integer).');
 
   const KEY = `stats:${fixture}`;
   try {
@@ -640,7 +744,7 @@ app.get('/stats', async (req, res) => {
       const { data, source } = await withFallback(
         async () => {
           const r = await afGet(`/fixtures/statistics?fixture=${fixture}`);
-          return (r.response || []).map(normalizeStat);
+          return (r.response || []).map(normStat);
         },
         async () => {
           const r = await smGet(`/statistics/fixtures/${fixture}`);
@@ -650,19 +754,19 @@ app.get('/stats', async (req, res) => {
       cache.set(KEY, { data, source }, TTL.STATS);
       return { data, source, cached: false };
     });
-    return send200(res, result.source, result.data, result.cached === true);
+    return ok(res, result.source, result.data, result.cached === true);
   } catch (err) {
-    log.error('/stats', err.message);
-    return sendErr(res, 502, 'stats', err.message);
+    logger.error('/stats', err.message);
+    return fail(res, 502, 'stats', err.message);
   }
 });
 
-// ── /news ─────────────────────────────────────────────────────
+// ── GET /news ─────────────────────────────────────────────────
 app.get('/news', async (_req, res) => {
   const KEY = 'news:espn';
   try {
     const result = await cache.dedupe(KEY, async () => {
-      const { status, body } = await getText(ESPN_RSS, {
+      const { status, body } = await fetchText(ESPN_RSS, {
         headers : { 'User-Agent': 'SportLab/1.0', Accept: 'application/rss+xml, text/xml' },
       });
       if (status !== 200) throw new Error(`ESPN RSS returned HTTP ${status}`);
@@ -670,17 +774,17 @@ app.get('/news', async (_req, res) => {
       cache.set(KEY, { data, source: 'espn-rss' }, TTL.NEWS);
       return { data, source: 'espn-rss', cached: false };
     });
-    return send200(res, result.source, result.data, result.cached === true);
+    return ok(res, result.source, result.data, result.cached === true);
   } catch (err) {
-    log.error('/news', err.message);
-    return sendErr(res, 502, 'news', err.message);
+    logger.error('/news', err.message);
+    return fail(res, 502, 'news', err.message);
   }
 });
 
-// ── /highlights ───────────────────────────────────────────────
+// ── GET /highlights ───────────────────────────────────────────
 app.get('/highlights', async (req, res) => {
-  if (!process.env.YOUTUBE_KEY)
-    return sendErr(res, 503, 'youtube', 'YOUTUBE_KEY is not configured.');
+  if (!CONFIG.KEYS.YT)
+    return fail(res, 503, 'youtube', 'YOUTUBE_KEY is not configured.');
 
   const q          = safeStr(req.query.q) || 'football highlights today';
   const maxResults = clamp(req.query.maxResults, 1, 25, 10);
@@ -689,13 +793,16 @@ app.get('/highlights', async (req, res) => {
   try {
     const result = await cache.dedupe(KEY, async () => {
       const qs = new URLSearchParams({
-        part: 'snippet', q, type: 'video',
-        maxResults: String(maxResults),
-        order: 'relevance', safeSearch: 'moderate',
-        key: process.env.YOUTUBE_KEY,
+        part        : 'snippet',
+        q,
+        type        : 'video',
+        maxResults  : String(maxResults),
+        order       : 'relevance',
+        safeSearch  : 'moderate',
+        key         : CONFIG.KEYS.YT,
       });
 
-      const { status, data } = await getJSON(`${YT_SEARCH}?${qs}`);
+      const { status, data } = await fetchJSON(`${YT_API}?${qs}`);
       if (status !== 200)
         throw new Error(`YouTube API(${status}): ${data?.error?.message || 'unknown'}`);
 
@@ -703,28 +810,29 @@ app.get('/highlights', async (req, res) => {
         .filter(i => i.id?.videoId)
         .map(i => ({
           videoId      : i.id.videoId,
-          title        : i.snippet?.title,
+          title        : i.snippet?.title        || null,
           description  : (i.snippet?.description || '').slice(0, 200),
-          thumbnail    : i.snippet?.thumbnails?.medium?.url || i.snippet?.thumbnails?.default?.url,
-          channelTitle : i.snippet?.channelTitle,
-          publishedAt  : i.snippet?.publishedAt,
+          thumbnail    : i.snippet?.thumbnails?.medium?.url || i.snippet?.thumbnails?.default?.url || null,
+          channelTitle : i.snippet?.channelTitle  || null,
+          publishedAt  : i.snippet?.publishedAt   || null,
           watchUrl     : `https://www.youtube.com/watch?v=${i.id.videoId}`,
         }));
 
       cache.set(KEY, { data: items, source: 'youtube' }, TTL.HIGHLIGHTS);
       return { data: items, source: 'youtube', cached: false };
     });
-    return send200(res, result.source, result.data, result.cached === true);
+    return ok(res, result.source, result.data, result.cached === true);
   } catch (err) {
-    log.error('/highlights', err.message);
-    return sendErr(res, 502, 'highlights', err.message);
+    logger.error('/highlights', err.message);
+    return fail(res, 502, 'highlights', err.message);
   }
 });
 
-// ── /streams ──────────────────────────────────────────────────
+// ── GET /streams ──────────────────────────────────────────────
 app.get('/streams', async (req, res) => {
   const matchId = safeStr(req.query.matchId, 64);
-  if (!matchId) return sendErr(res, 400, 'validation', 'Query param "matchId" is required.');
+  if (!matchId)
+    return fail(res, 400, 'validation', 'Query param "matchId" is required.');
 
   const KEY = `streams:${matchId}`;
   try {
@@ -733,100 +841,74 @@ app.get('/streams', async (req, res) => {
       cache.set(KEY, { data: streams, source: 'fawanews' }, TTL.STREAMS);
       return { data: streams, source: 'fawanews', cached: false };
     });
-    return send200(res, result.source, result.data, result.cached === true, {
-      meta: { total: result.data.length, filtered: true },
+    return ok(res, result.source, result.data, result.cached === true, {
+      meta : { total: result.data.length, filtered: true },
     });
   } catch (err) {
-    log.error('/streams', err.message);
-    return sendErr(res, 502, 'streams', err.message);
+    logger.error('/streams', err.message);
+    return fail(res, 502, 'streams', err.message);
   }
 });
 
 // ═══════════════════════════════════════════════════════════════
-// 404 + GLOBAL ERROR HANDLER
+// 404 HANDLER
 // ═══════════════════════════════════════════════════════════════
 
 app.use((req, res) => {
-  return sendErr(res, 404, 'router', `Not found: ${req.method} ${req.path}`);
+  return fail(res, 404, 'router', `Not found: ${req.method} ${req.path}`);
 });
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL ERROR HANDLER
+// ═══════════════════════════════════════════════════════════════
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
-  log.error('Unhandled:', err);
-  return sendErr(res, 500, 'server', 'Internal server error.');
+  logger.error('Unhandled exception:', err?.message || err);
+  // Surface CORS errors as 403 instead of 500
+  if (err.message && err.message.startsWith('CORS:')) {
+    return fail(res, 403, 'cors', err.message);
+  }
+  return fail(res, 500, 'server', 'Internal server error.');
 });
 
 // ═══════════════════════════════════════════════════════════════
-// START
+// PROCESS SAFETY
 // ═══════════════════════════════════════════════════════════════
 
-app.listen(PORT, () => {
-  log.info(`SportLab listening on port ${PORT} [${ENV}]`);
-  log.info(`API-Football : ${process.env.API_FOOTBALL_KEY ? '✓' : '✗ MISSING'}`);
-  log.info(`SportMonks   : ${process.env.SPORTMONKS_KEY   ? '✓' : '✗ MISSING'}`);
-  log.info(`YouTube      : ${process.env.YOUTUBE_KEY       ? '✓' : '✗ MISSING'}`);
+process.on('uncaughtException',  err => logger.error('uncaughtException:',  err.message));
+process.on('unhandledRejection', err => logger.error('unhandledRejection:', err?.message || err));
+
+// ═══════════════════════════════════════════════════════════════
+// SERVER STARTUP + GRACEFUL SHUTDOWN
+// ═══════════════════════════════════════════════════════════════
+
+const server = app.listen(CONFIG.PORT, () => {
+  logger.info(`SportLab listening on port ${CONFIG.PORT} [${CONFIG.ENV}]`);
+  logger.info(`API-Football : ${CONFIG.KEYS.AF ? '✓' : '✗ MISSING'}`);
+  logger.info(`SportMonks   : ${CONFIG.KEYS.SM ? '✓' : '✗ MISSING'}`);
+  logger.info(`YouTube      : ${CONFIG.KEYS.YT ? '✓' : '✗ MISSING'}`);
 });
+
+function gracefulShutdown(signal) {
+  logger.info(`${signal} received — shutting down gracefully`);
+  server.close(err => {
+    if (err) {
+      logger.error('Error during shutdown:', err.message);
+      process.exit(1);
+    }
+    logger.info('Server closed — all connections drained');
+    process.exit(0);
+  });
+
+  // Force exit if still open after 10s
+  setTimeout(() => {
+    logger.error('Shutdown timeout exceeded — forcing exit');
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
 
 module.exports = app;
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'SportLab API is running 🚀',
-    endpoints: [
-      '/live-matches',
-      '/fixtures',
-      '/standings',
-      '/lineups',
-      '/stats',
-      '/news',
-      '/highlights',
-      '/streams'
-    ]
-  });
-});
-app.get('/health/apis', async (req, res) => {
-  const results = {};
-
-  // 1. API-Football
-  try {
-    const r = await fetch('https://v3.football.api-sports.io/status', {
-      headers: {
-        'x-apisports-key': process.env.API_FOOTBALL_KEY
-      }
-    });
-    results.apiFootball = {
-      status: r.status,
-      ok: r.ok
-    };
-  } catch (e) {
-    results.apiFootball = { ok: false, error: e.message };
-  }
-
-  // 2. SportMonks
-  try {
-    const r = await fetch(`https://api.sportmonks.com/v3/core/initializers?api_token=${process.env.SPORTMONKS_KEY}`);
-    results.sportMonks = {
-      status: r.status,
-      ok: r.ok
-    };
-  } catch (e) {
-    results.sportMonks = { ok: false, error: e.message };
-  }
-
-  // 3. YouTube API
-  try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=football&maxResults=1&key=${process.env.YOUTUBE_KEY}`;
-    const r = await fetch(url);
-    results.youtube = {
-      status: r.status,
-      ok: r.ok
-    };
-  } catch (e) {
-    results.youtube = { ok: false, error: e.message };
-  }
-
-  res.json({
-    success: true,
-    results
-  });
-});
