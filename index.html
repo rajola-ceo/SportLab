@@ -43,7 +43,6 @@
             text-decoration: none;
             color: inherit;
         }
-        /* ===== SCROLLBAR ===== */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -368,13 +367,6 @@
             background: var(--primary);
             color: var(--white);
         }
-        .tab-btn svg {
-            width: 14px;
-            height: 14px;
-            fill: currentColor;
-            vertical-align: middle;
-            margin-right: 4px;
-        }
 
         /* ===== CONTAINER ===== */
         .container {
@@ -501,7 +493,7 @@
             fill: currentColor;
         }
 
-        /* ===== NEWS SLIDER (MovieBox Style) ===== */
+        /* ===== NEWS SLIDER ===== */
         .news-slider {
             display: flex;
             gap: 16px;
@@ -721,6 +713,75 @@
             width: 100%;
         }
 
+        /* ===== EMPTY STATE ===== */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--gray);
+        }
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            fill: var(--gray);
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        .empty-state p {
+            font-size: 16px;
+            color: var(--white);
+        }
+        .empty-state .sub {
+            font-size: 14px;
+        }
+
+        /* ===== NOTIFICATION ===== */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--dark-2);
+            color: var(--white);
+            padding: 12px 24px;
+            border-radius: var(--radius);
+            border: 1px solid var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10000;
+            font-size: 14px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            animation: slideUp 0.3s ease;
+            max-width: 90%;
+        }
+        .notification.success {
+            border-color: var(--success);
+        }
+        .notification.error {
+            border-color: var(--danger);
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        .notification .close {
+            background: none;
+            border: none;
+            color: var(--gray);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .notification .close:hover {
+            color: var(--white);
+        }
+
         /* ===== RESPONSIVE ===== */
         @media (max-width: 768px) {
             .header-inner {
@@ -771,10 +832,6 @@
             .section-header h2 {
                 font-size: 18px;
             }
-            .section-header h2 svg {
-                width: 18px;
-                height: 18px;
-            }
             .news-slider .news-card {
                 min-width: 220px;
             }
@@ -798,7 +855,6 @@
                 padding: 12px 10px;
             }
         }
-
         @media (max-width: 480px) {
             .hero h1 {
                 font-size: 22px;
@@ -824,8 +880,6 @@
                 grid-template-columns: 1fr;
             }
         }
-
-        /* ===== UTILITY ===== */
         .grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -835,87 +889,6 @@
             .grid-2 {
                 grid-template-columns: 1fr;
             }
-        }
-        .mt-8 {
-            margin-top: 8px;
-        }
-        .mb-8 {
-            margin-bottom: 8px;
-        }
-
-        /* ===== NOTIFICATION ===== */
-        .notification {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--dark-2);
-            color: var(--white);
-            padding: 12px 24px;
-            border-radius: var(--radius);
-            border: 1px solid var(--primary);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            z-index: 10000;
-            font-size: 14px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            animation: slideUp 0.3s ease;
-            max-width: 90%;
-        }
-        .notification.success {
-            border-color: var(--success);
-        }
-        .notification.error {
-            border-color: var(--danger);
-        }
-        .notification svg {
-            width: 20px;
-            height: 20px;
-            fill: currentColor;
-            flex-shrink: 0;
-        }
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateX(-50%) translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
-        }
-        .notification .close {
-            background: none;
-            border: none;
-            color: var(--gray);
-            font-size: 20px;
-            cursor: pointer;
-            padding: 0 4px;
-        }
-        .notification .close:hover {
-            color: var(--white);
-        }
-
-        /* ===== EMPTY STATE ===== */
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--gray);
-        }
-        .empty-state svg {
-            width: 48px;
-            height: 48px;
-            fill: var(--gray);
-            margin-bottom: 12px;
-            opacity: 0.5;
-        }
-        .empty-state p {
-            font-size: 16px;
-            color: var(--white);
-        }
-        .empty-state .sub {
-            font-size: 14px;
         }
     </style>
 </head>
@@ -1000,9 +973,7 @@
             </h2>
             <span class="count" id="matchCountBadge">0 matches</span>
         </div>
-        <div id="matchesGrid">
-            <!-- Matches loaded by JavaScript -->
-        </div>
+        <div id="matchesGrid"></div>
 
         <!-- === TOMORROW'S MATCHES === -->
         <div class="section-header">
@@ -1012,9 +983,7 @@
             </h2>
             <span class="count" id="tomorrowCount">0 matches</span>
         </div>
-        <div id="tomorrowGrid">
-            <!-- Tomorrow's matches loaded by JavaScript -->
-        </div>
+        <div id="tomorrowGrid"></div>
 
         <!-- === RESULTS === -->
         <div class="section-header">
@@ -1024,11 +993,9 @@
             </h2>
             <span class="count" id="resultsCount">0 results</span>
         </div>
-        <div id="resultsGrid">
-            <!-- Results loaded by JavaScript -->
-        </div>
+        <div id="resultsGrid"></div>
 
-        <!-- === NEWS SLIDER (MovieBox Style) === -->
+        <!-- === NEWS SLIDER === -->
         <div class="section-header">
             <h2>
                 <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12zM7 9h10v2H7zm0 4h7v2H7zm0-8h10v2H7z"/></svg>
@@ -1036,9 +1003,7 @@
             </h2>
             <span class="count" id="newsCount">0 articles</span>
         </div>
-        <div class="news-slider" id="newsSlider">
-            <!-- News loaded by JavaScript -->
-        </div>
+        <div class="news-slider" id="newsSlider"></div>
 
         <!-- === HIGHLIGHTS === -->
         <div class="section-header">
@@ -1048,9 +1013,7 @@
             </h2>
             <span class="count" id="highlightsCount">0 videos</span>
         </div>
-        <div class="highlights-grid" id="highlightsGrid">
-            <!-- Highlights loaded by JavaScript -->
-        </div>
+        <div class="highlights-grid" id="highlightsGrid"></div>
 
     </div>
 
@@ -1082,8 +1045,56 @@
         // ================================================================
 
         // ===== CONFIGURATION =====
-        // CHANGE THIS URL when deploying to Render
         const API_BASE = 'http://localhost:3000';
+        const USE_MOCK_DATA = true;
+
+        // ===== MOCK DATA =====
+        const MOCK_DATA = {
+            matches: [
+                { id: 'm1', name: 'Senegal vs Iraq', league: 'FIFA World Cup', competition: 'World Cup', time: new Date(Date
+                        .now() + 3600000).toISOString(), status: 'upcoming', language: 'ENG', quality: 'HD',
+                    flag: '🌍' },
+                { id: 'm2', name: 'Norway vs France', league: 'FIFA World Cup', competition: 'World Cup', time: new Date(Date
+                        .now() + 7200000).toISOString(), status: 'upcoming', language: 'ENG', quality: 'HD',
+                    flag: '🌍' },
+                { id: 'm3', name: 'Manchester United vs Liverpool', league: 'Premier League', competition: 'Premier League',
+                    time: new Date(Date.now() - 1800000).toISOString(), status: 'live', language: 'ENG', quality: 'HD',
+                    flag: '🏴' },
+                { id: 'm4', name: 'Real Madrid vs Barcelona', league: 'La Liga', competition: 'La Liga', time: new Date(Date
+                        .now() + 10800000).toISOString(), status: 'upcoming', language: 'ENG', quality: 'FHD',
+                    flag: '🇪🇸' },
+                { id: 'm5', name: 'Bayern Munich vs Dortmund', league: 'Bundesliga', competition: 'Bundesliga', time: new Date(
+                        Date.now() + 14400000).toISOString(), status: 'upcoming', language: 'HD', quality: 'HD',
+                    flag: '🇩🇪' }
+            ],
+            tomorrow: [
+                { id: 't1', name: 'Arsenal vs Chelsea', league: 'Premier League', competition: 'Premier League',
+                    time: new Date(Date.now() + 86400000).toISOString(), flag: '🏴' },
+                { id: 't2', name: 'AC Milan vs Inter Milan', league: 'Serie A', competition: 'Serie A', time: new Date(Date
+                        .now() + 90000000).toISOString(), flag: '🇮🇹' }
+            ],
+            results: [
+                { id: 'r1', name: 'Arsenal vs Chelsea', league: 'Premier League', score: '2-1', time: '2 hours ago' },
+                { id: 'r2', name: 'Real Madrid vs Valencia', league: 'La Liga', score: '3-0', time: '4 hours ago' },
+                { id: 'r3', name: 'Bayern Munich vs Leipzig', league: 'Bundesliga', score: '1-1', time: '6 hours ago' }
+            ],
+            news: [
+                { id: 'n1', title: 'Arsenal manager Mikel Arteta confirms Bukayo Saka injury', category: 'Premier League',
+                    source: 'BBC Sport', time: '2 hours ago' },
+                { id: 'n2', title: 'Ruben Amorim questions decision-making of Marcus Rashford', category: 'Premier League',
+                    source: 'Sky Sports', time: '3 hours ago' },
+                { id: 'n3', title: 'Southampton appoint Ivan Juric as new manager', category: 'Premier League',
+                    source: 'The Guardian', time: '5 hours ago' },
+                { id: 'n4', title: 'Real Madrid and Barcelona to compete for Bayern star', category: 'La Liga',
+                    source: 'Marca', time: '6 hours ago' }
+            ],
+            highlights: [
+                { id: 'h1', title: 'Man City 3-1 United Highlights', competition: 'Premier League',
+                    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+                { id: 'h2', title: 'Real Madrid 2-0 Barcelona Highlights', competition: 'La Liga',
+                    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ' }
+            ]
+        };
 
         // ===== STATE =====
         let allMatches = [];
@@ -1091,6 +1102,7 @@
         let currentFilter = 'all';
         let searchQuery = '';
         let isRefreshing = false;
+        let usingMockData = false;
 
         // ===== DOM REFS =====
         const $ = id => document.getElementById(id);
@@ -1120,11 +1132,11 @@
         // ===== API HELPERS =====
         async function fetchAPI(endpoint) {
             try {
-                const res = await fetch(`${API_BASE}${endpoint}`);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const res = await fetch(API_BASE + endpoint);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 return await res.json();
             } catch (err) {
-                console.error(`API Error (${endpoint}):`, err);
+                console.warn('API Error (' + endpoint + '):', err.message);
                 return null;
             }
         }
@@ -1132,268 +1144,271 @@
         // ===== LOAD DATA =====
         async function loadData() {
             try {
-                // Load matches
-                const matchesData = await fetchAPI('/api/matches');
-                if (matchesData && matchesData.success) {
-                    allMatches = matchesData.matches || [];
-                    filteredMatches = allMatches;
-                    renderMatches(filteredMatches);
-                    updateMatchCount();
-                    updateLiveCount();
+                let matchesData = await fetchAPI('/api/matches');
+                if (matchesData && matchesData.success && matchesData.matches && matchesData.matches.length > 0) {
+                    allMatches = matchesData.matches;
+                    usingMockData = false;
+                } else if (USE_MOCK_DATA) {
+                    allMatches = MOCK_DATA.matches;
+                    usingMockData = true;
+                    console.log('Using mock data');
                 }
 
-                // Load tomorrow
-                const tomorrowData = await fetchAPI('/api/tomorrow');
-                if (tomorrowData && tomorrowData.success) {
-                    renderTomorrow(tomorrowData.matches || []);
-                    els.tomorrowCount.textContent = `${tomorrowData.total || 0} matches`;
-                }
+                filteredMatches = allMatches;
+                renderMatches(filteredMatches);
+                updateMatchCount();
+                updateLiveCount();
 
-                // Load results
-                const resultsData = await fetchAPI('/api/results');
-                if (resultsData && resultsData.success) {
-                    renderResults(resultsData.results || []);
-                    els.resultsCount.textContent = `${resultsData.total || 0} results`;
-                }
+                let tomorrowData = await fetchAPI('/api/tomorrow');
+                let tomorrow = (tomorrowData && tomorrowData.success) ? tomorrowData.matches : (USE_MOCK_DATA ? MOCK_DATA
+                    .tomorrow : []);
+                renderTomorrow(tomorrow || []);
+                els.tomorrowCount.textContent = (tomorrow || []).length + ' matches';
 
-                // Load news
-                const newsData = await fetchAPI('/api/news');
-                if (newsData && newsData.success) {
-                    renderNews(newsData.news || []);
-                    els.newsCount.textContent = `${newsData.total || 0} articles`;
-                }
+                let resultsData = await fetchAPI('/api/results');
+                let results = (resultsData && resultsData.success) ? resultsData.results : (USE_MOCK_DATA ? MOCK_DATA
+                    .results : []);
+                renderResults(results || []);
+                els.resultsCount.textContent = (results || []).length + ' results';
 
-                // Load highlights
-                const highlightsData = await fetchAPI('/api/highlights');
-                if (highlightsData && highlightsData.success) {
-                    renderHighlights(highlightsData.highlights || []);
-                    els.highlightsCount.textContent = `${highlightsData.total || 0} videos`;
-                }
+                let newsData = await fetchAPI('/api/news');
+                let news = (newsData && newsData.success) ? newsData.news : (USE_MOCK_DATA ? MOCK_DATA.news : []);
+                renderNews(news || []);
+                els.newsCount.textContent = (news || []).length + ' articles';
 
-                // Update time
+                let highlightsData = await fetchAPI('/api/highlights');
+                let highlights = (highlightsData && highlightsData.success) ? highlightsData.highlights : (USE_MOCK_DATA ?
+                    MOCK_DATA.highlights : []);
+                renderHighlights(highlights || []);
+                els.highlightsCount.textContent = (highlights || []).length + ' videos';
+
                 updateTime();
+
+                if (usingMockData) {
+                    showNotification('Using sample data (backend not connected)', 'info');
+                }
 
             } catch (err) {
                 console.error('Load data error:', err);
-                showNotification('Failed to load data', 'error');
+                if (USE_MOCK_DATA && allMatches.length === 0) {
+                    allMatches = MOCK_DATA.matches;
+                    filteredMatches = allMatches;
+                    renderMatches(allMatches);
+                    updateMatchCount();
+                    updateLiveCount();
+                    renderTomorrow(MOCK_DATA.tomorrow);
+                    renderResults(MOCK_DATA.results);
+                    renderNews(MOCK_DATA.news);
+                    renderHighlights(MOCK_DATA.highlights);
+                    showNotification('Using sample data', 'info');
+                } else {
+                    showNotification('Failed to load data', 'error');
+                }
             }
         }
 
-        // ===== RENDER MATCHES =====
+        // ===== RENDER FUNCTIONS =====
         function renderMatches(matches) {
-            const grid = els.matchesGrid;
-
+            var grid = els.matchesGrid;
             if (!matches || matches.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2V7zm0 8h2v2h-2v-2z"/></svg>
-                        <p>No matches available</p>
-                        <div class="sub">Check back later for live matches</div>
-                    </div>
-                `;
+                grid.innerHTML =
+                    '<div class="empty-state"><svg viewBox="0 0 24 24" width="48" height="48"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2V7zm0 8h2v2h-2v-2z"/></svg><p>No matches available</p><div class="sub">Check back later for live matches</div></div>';
                 return;
             }
 
-            // Sort: live first, then by time
-            const sorted = [...matches].sort((a, b) => {
+            var sorted = matches.slice().sort(function(a, b) {
                 if (a.status === 'live' && b.status !== 'live') return -1;
                 if (a.status !== 'live' && b.status === 'live') return 1;
                 return new Date(a.time) - new Date(b.time);
             });
 
-            grid.innerHTML = sorted.map(match => `
-                <div class="match-card" onclick="openPlayer('${match.id}', '${encodeURIComponent(match.name)}', '${encodeURIComponent(match.url || '')}')">
-                    <div class="icon">${match.flag || '⚽'}</div>
-                    <div class="info">
-                        <div class="name">${match.name}</div>
-                        <div class="meta">
-                            <span class="league">${match.competition || match.league || 'Football'}</span>
-                            <span>•</span>
-                            <span>${formatTime(match.time)}</span>
-                            ${match.language ? `<span class="lang">${match.language}</span>` : ''}
-                            ${match.quality ? `<span class="lang">${match.quality}</span>` : ''}
-                        </div>
-                    </div>
-                    <span class="status ${match.status === 'live' ? 'live' : match.status === 'soon' ? 'soon' : 'upcoming'}">
-                        ${match.status === 'live' ? '● LIVE' : match.status === 'soon' ? '⏰ Soon' : '📅 Upcoming'}
-                    </span>
-                    <span class="arrow"><svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span>
-                </div>
-            `).join('');
+            var html = '';
+            for (var i = 0; i < sorted.length; i++) {
+                var m = sorted[i];
+                var statusClass = m.status === 'live' ? 'live' : (m.status === 'soon' ? 'soon' : 'upcoming');
+                var statusText = m.status === 'live' ? '● LIVE' : (m.status === 'soon' ? '⏰ Soon' : '📅 Upcoming');
+                var flag = m.flag || '⚽';
+                var name = m.name || 'Match';
+                var competition = m.competition || m.league || 'Football';
+                var time = formatTime(m.time);
+                var lang = m.language ? '<span class="lang">' + m.language + '</span>' : '';
+                var quality = m.quality ? '<span class="lang">' + m.quality + '</span>' : '';
+
+                html += '<div class="match-card" onclick="openPlayer(\'' + m.id + '\', \'' + encodeURIComponent(name) +
+                    '\', \'' + encodeURIComponent(m.url || '') + '\')">';
+                html += '<div class="icon">' + flag + '</div>';
+                html += '<div class="info">';
+                html += '<div class="name">' + name + '</div>';
+                html += '<div class="meta"><span class="league">' + competition + '</span><span>•</span><span>' + time +
+                    '</span>' + lang + quality + '</div>';
+                html += '</div>';
+                html += '<span class="status ' + statusClass + '">' + statusText + '</span>';
+                html += '<span class="arrow"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span>';
+                html += '</div>';
+            }
+            grid.innerHTML = html;
         }
 
-        // ===== RENDER TOMORROW =====
         function renderTomorrow(matches) {
-            const grid = els.tomorrowGrid;
+            var grid = els.tomorrowGrid;
             if (!matches || matches.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
-                        <p>No matches scheduled for tomorrow</p>
-                    </div>
-                `;
+                grid.innerHTML =
+                    '<div class="empty-state"><svg viewBox="0 0 24 24" width="48" height="48"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg><p>No matches scheduled for tomorrow</p></div>';
                 return;
             }
-            grid.innerHTML = matches.map(m => `
-                <div class="match-card" onclick="openPlayer('${m.id}', '${encodeURIComponent(m.name)}', '${encodeURIComponent(m.url || '')}')">
-                    <div class="icon">${m.flag || '⚽'}</div>
-                    <div class="info">
-                        <div class="name">${m.name}</div>
-                        <div class="meta">
-                            <span class="league">${m.competition || m.league || 'Football'}</span>
-                            <span>•</span>
-                            <span>${formatTime(m.time)}</span>
-                            ${m.language ? `<span class="lang">${m.language}</span>` : ''}
-                        </div>
-                    </div>
-                    <span class="status upcoming">📅 Tomorrow</span>
-                    <span class="arrow"><svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span>
-                </div>
-            `).join('');
+            var html = '';
+            for (var i = 0; i < matches.length; i++) {
+                var m = matches[i];
+                var flag = m.flag || '⚽';
+                var name = m.name || 'Match';
+                var competition = m.competition || m.league || 'Football';
+                var time = formatTime(m.time);
+                var lang = m.language ? '<span class="lang">' + m.language + '</span>' : '';
+
+                html += '<div class="match-card" onclick="openPlayer(\'' + m.id + '\', \'' + encodeURIComponent(name) +
+                    '\', \'' + encodeURIComponent(m.url || '') + '\')">';
+                html += '<div class="icon">' + flag + '</div>';
+                html += '<div class="info">';
+                html += '<div class="name">' + name + '</div>';
+                html += '<div class="meta"><span class="league">' + competition + '</span><span>•</span><span>' + time +
+                    '</span>' + lang + '</div>';
+                html += '</div>';
+                html += '<span class="status upcoming">📅 Tomorrow</span>';
+                html += '<span class="arrow"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span>';
+                html += '</div>';
+            }
+            grid.innerHTML = html;
         }
 
-        // ===== RENDER RESULTS =====
         function renderResults(results) {
-            const grid = els.resultsGrid;
+            var grid = els.resultsGrid;
             if (!results || results.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
-                        <p>No results available</p>
-                    </div>
-                `;
+                grid.innerHTML =
+                    '<div class="empty-state"><svg viewBox="0 0 24 24" width="48" height="48"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg><p>No results available</p></div>';
                 return;
             }
-            grid.innerHTML = results.map(r => `
-                <div class="result-card">
-                    <div class="result-info">
-                        <div class="result-name">${r.name}</div>
-                        <div class="result-league">${r.league || 'Football'}</div>
-                    </div>
-                    <div class="result-score">
-                        ${r.score || 'vs'}
-                    </div>
-                    <div class="result-time">${r.time || 'Just now'}</div>
-                </div>
-            `).join('');
+            var html = '';
+            for (var i = 0; i < results.length; i++) {
+                var r = results[i];
+                html += '<div class="result-card">';
+                html += '<div class="result-info"><div class="result-name">' + r.name + '</div><div class="result-league">' +
+                    (r.league || 'Football') + '</div></div>';
+                html += '<div class="result-score">' + (r.score || 'vs') + '</div>';
+                html += '<div class="result-time">' + (r.time || 'Just now') + '</div>';
+                html += '</div>';
+            }
+            grid.innerHTML = html;
         }
 
-        // ===== RENDER NEWS (Slider) =====
         function renderNews(news) {
-            const slider = els.newsSlider;
+            var slider = els.newsSlider;
             if (!news || news.length === 0) {
-                slider.innerHTML = `
-                    <div class="empty-state" style="min-width:100%">
-                        <p>No news available</p>
-                    </div>
-                `;
+                slider.innerHTML =
+                    '<div class="empty-state" style="min-width:100%;padding:20px;"><p>No news available</p></div>';
                 return;
             }
-            slider.innerHTML = news.map(n => `
-                <div class="news-card" onclick="showNotification('${n.title.replace(/'/g, "\\'")}', 'info')">
-                    <div class="news-category">${n.category || 'Football'}</div>
-                    <div class="news-title">${n.title}</div>
-                    <div class="news-meta">
-                        <span class="source">${n.source || 'AURAEN'}</span>
-                        <span>•</span>
-                        <span>${n.time || 'Just now'}</span>
-                    </div>
-                </div>
-            `).join('');
+            var html = '';
+            for (var i = 0; i < news.length; i++) {
+                var n = news[i];
+                var title = n.title || 'News';
+                var category = n.category || 'Football';
+                var source = n.source || 'AURAEN';
+                var time = n.time || 'Just now';
+                html += '<div class="news-card" onclick="showNotification(\'' + title.replace(/'/g, "\\'") +
+                    '\', \'info\')">';
+                html += '<div class="news-category">' + category + '</div>';
+                html += '<div class="news-title">' + title + '</div>';
+                html += '<div class="news-meta"><span class="source">' + source + '</span><span>•</span><span>' + time +
+                    '</span></div>';
+                html += '</div>';
+            }
+            slider.innerHTML = html;
         }
 
-        // ===== RENDER HIGHLIGHTS =====
         function renderHighlights(highlights) {
-            const grid = els.highlightsGrid;
+            var grid = els.highlightsGrid;
             if (!highlights || highlights.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24"><path d="M10 8.64L15.27 12 10 15.36V8.64zM21 3H3v18h18V3z"/></svg>
-                        <p>No highlights available</p>
-                    </div>
-                `;
+                grid.innerHTML =
+                    '<div class="empty-state"><svg viewBox="0 0 24 24" width="48" height="48"><path d="M10 8.64L15.27 12 10 15.36V8.64zM21 3H3v18h18V3z"/></svg><p>No highlights available</p></div>';
                 return;
             }
-            grid.innerHTML = highlights.map(h => `
-                <div class="highlight-card" onclick="window.open('${h.url || '#}', '_blank')">
-                    <div class="highlight-thumb">
-                        <div class="play-btn">
-                            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                    </div>
-                    <div class="highlight-info">
-                        <div class="highlight-title">${h.title || 'Match Highlights'}</div>
-                        <div class="highlight-comp">${h.competition || 'Football'}</div>
-                    </div>
-                </div>
-            `).join('');
+            var html = '';
+            for (var i = 0; i < highlights.length; i++) {
+                var h = highlights[i];
+                var title = h.title || 'Match Highlights';
+                var competition = h.competition || 'Football';
+                var url = h.url || '#';
+                html += '<div class="highlight-card" onclick="window.open(\'' + url + '\', \'_blank\')">';
+                html += '<div class="highlight-thumb"><div class="play-btn"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M8 5v14l11-7z"/></svg></div></div>';
+                html += '<div class="highlight-info"><div class="highlight-title">' + title +
+                    '</div><div class="highlight-comp">' + competition + '</div></div>';
+                html += '</div>';
+            }
+            grid.innerHTML = html;
         }
 
-        // ===== FILTER MATCHES =====
+        // ===== FILTER, SEARCH, UTILITY =====
         function filterMatches(filter) {
             currentFilter = filter;
             if (filter === 'all') {
                 filteredMatches = allMatches;
             } else if (filter === 'live') {
-                filteredMatches = allMatches.filter(m => m.status === 'live');
+                filteredMatches = allMatches.filter(function(m) { return m.status === 'live'; });
             } else {
-                const filterLower = filter.replace('-', ' ');
-                filteredMatches = allMatches.filter(m =>
-                    m.competition && m.competition.toLowerCase().includes(filterLower)
-                );
+                var filterLower = filter.replace('-', ' ');
+                filteredMatches = allMatches.filter(function(m) {
+                    return m.competition && m.competition.toLowerCase().includes(filterLower);
+                });
             }
-            // Apply search if active
             if (searchQuery) {
-                filteredMatches = filteredMatches.filter(m =>
-                    m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (m.competition && m.competition.toLowerCase().includes(searchQuery.toLowerCase()))
-                );
+                var sq = searchQuery.toLowerCase();
+                filteredMatches = filteredMatches.filter(function(m) {
+                    return m.name.toLowerCase().includes(sq) ||
+                        (m.competition && m.competition.toLowerCase().includes(sq));
+                });
             }
             renderMatches(filteredMatches);
             updateMatchCount();
         }
 
-        // ===== SEARCH =====
         function performSearch(query) {
             searchQuery = query.trim();
-            const results = els.searchResults;
-
+            var results = els.searchResults;
             if (!searchQuery) {
                 results.classList.remove('active');
                 filterMatches(currentFilter);
                 return;
             }
-
-            const searchLower = searchQuery.toLowerCase();
-            const found = allMatches.filter(m =>
-                m.name.toLowerCase().includes(searchLower) ||
-                (m.competition && m.competition.toLowerCase().includes(searchLower)) ||
-                (m.league && m.league.toLowerCase().includes(searchLower))
-            );
-
+            var sq = searchQuery.toLowerCase();
+            var found = allMatches.filter(function(m) {
+                return m.name.toLowerCase().includes(sq) ||
+                    (m.competition && m.competition.toLowerCase().includes(sq)) ||
+                    (m.league && m.league.toLowerCase().includes(sq));
+            });
             if (found.length === 0) {
-                results.innerHTML = `<div class="no-results">No matches found for "${searchQuery}"</div>`;
+                results.innerHTML = '<div class="no-results">No matches found for "' + searchQuery + '"</div>';
                 results.classList.add('active');
                 return;
             }
-
-            results.innerHTML = found.slice(0, 8).map(m => `
-                <div class="result-item" onclick="selectSearchResult('${m.id}', '${encodeURIComponent(m.name)}')">
-                    <span>${m.flag || '⚽'}</span>
-                    <span class="result-name">${m.name}</span>
-                    <span class="result-league">${m.competition || m.league || ''}</span>
-                </div>
-            `).join('');
+            var html = '';
+            for (var i = 0; i < Math.min(found.length, 8); i++) {
+                var m = found[i];
+                html += '<div class="result-item" onclick="selectSearchResult(\'' + m.id + '\', \'' + encodeURIComponent(m
+                    .name) + '\')">';
+                html += '<span>' + (m.flag || '⚽') + '</span>';
+                html += '<span class="result-name">' + m.name + '</span>';
+                html += '<span class="result-league">' + (m.competition || m.league || '') + '</span>';
+                html += '</div>';
+            }
+            results.innerHTML = html;
             results.classList.add('active');
-
-            // Filter matches display
             filteredMatches = found;
             renderMatches(filteredMatches);
             updateMatchCount();
         }
 
         function selectSearchResult(id, name) {
-            const match = allMatches.find(m => m.id === id);
+            var match = allMatches.find(function(m) { return m.id === id; });
             if (match) {
                 els.searchInput.value = name;
                 els.searchResults.classList.remove('active');
@@ -1403,118 +1418,96 @@
             }
         }
 
-        // ===== OPEN PLAYER =====
         function openPlayer(id, name, url) {
-            // For now, just show notification
-            // In production: window.location.href = `/player.html?id=${id}&name=${name}&url=${url}`;
-            showNotification(`Opening: ${decodeURIComponent(name)}`, 'info');
+            showNotification('Opening: ' + decodeURIComponent(name), 'info');
         }
 
-        // ===== UPDATE COUNTS =====
         function updateMatchCount() {
-            const count = filteredMatches.length;
-            els.matchCount.textContent = `${count} matches`;
-            els.matchCountBadge.textContent = `${count} matches`;
+            var count = filteredMatches.length;
+            els.matchCount.textContent = count + ' matches';
+            els.matchCountBadge.textContent = count + ' matches';
         }
 
         function updateLiveCount() {
-            const live = allMatches.filter(m => m.status === 'live').length;
-            els.liveCount.textContent = `${live} Live`;
+            var live = allMatches.filter(function(m) { return m.status === 'live'; }).length;
+            els.liveCount.textContent = live + ' Live';
         }
 
-        // ===== UPDATE TIME =====
         function updateTime() {
-            const now = new Date();
+            var now = new Date();
             els.statusTime.textContent = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit',
                 second: '2-digit' });
-            els.lastUpdated.textContent = `Last updated: ${now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}`;
+            els.lastUpdated.textContent = 'Last updated: ' + now.toLocaleTimeString('en-US', { hour12: false,
+                hour: '2-digit', minute: '2-digit' });
         }
 
         function formatTime(iso) {
             if (!iso) return '--:--';
-            const d = new Date(iso);
+            var d = new Date(iso);
             return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
         }
 
-        // ===== REFRESH =====
         async function refreshData() {
             if (isRefreshing) return;
             isRefreshing = true;
-            const btn = els.refreshBtn;
+            var btn = els.refreshBtn;
             btn.classList.add('spinning');
-
             try {
-                await fetchAPI('/api/refresh');
                 await loadData();
-                showNotification('Data refreshed successfully!', 'success');
+                showNotification('Data refreshed!', 'success');
             } catch (err) {
-                showNotification('Refresh failed. Please try again.', 'error');
+                showNotification('Refresh failed', 'error');
             } finally {
                 isRefreshing = false;
                 btn.classList.remove('spinning');
             }
         }
 
-        // ===== NOTIFICATION =====
-        function showNotification(message, type = 'info') {
-            const existing = document.querySelector('.notification');
+        function showNotification(message, type) {
+            type = type || 'info';
+            var existing = document.querySelector('.notification');
             if (existing) existing.remove();
-
-            const notif = document.createElement('div');
-            notif.className = `notification ${type}`;
-            notif.innerHTML = `
-                <svg viewBox="0 0 24 24"><path d="${type === 'success' ? 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z' : type === 'error' ? 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z' : 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'}"/></svg>
-                <span>${message}</span>
-                <button class="close" onclick="this.parentElement.remove()">×</button>
-            `;
+            var notif = document.createElement('div');
+            notif.className = 'notification ' + type;
+            var icon = type === 'success' ? '✅' : (type === 'error' ? '❌' : 'ℹ️');
+            notif.innerHTML = '<span>' + icon + '</span><span>' + message +
+                '</span><button class="close" onclick="this.parentElement.remove()">×</button>';
             document.body.appendChild(notif);
-
-            setTimeout(() => {
-                if (notif.parentElement) notif.remove();
-            }, 4000);
+            setTimeout(function() { if (notif.parentElement) notif.remove(); }, 4000);
         }
 
-        // ===== EVENT LISTENERS =====
+        // ===== INIT =====
         function init() {
-            // Load data
             loadData();
-
-            // Auto-refresh every 60 seconds
             setInterval(loadData, 60000);
-
-            // Update time every second
             setInterval(updateTime, 1000);
 
-            // Refresh button
             els.refreshBtn.addEventListener('click', refreshData);
 
-            // Filter tabs
-            els.filterTabs.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    els.filterTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            var tabs = els.filterTabs.querySelectorAll('.tab-btn');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].addEventListener('click', function() {
+                    var allTabs = els.filterTabs.querySelectorAll('.tab-btn');
+                    for (var j = 0; j < allTabs.length; j++) {
+                        allTabs[j].classList.remove('active');
+                    }
                     this.classList.add('active');
                     filterMatches(this.dataset.filter);
                 });
-            });
+            }
 
-            // Search
-            let searchTimeout;
+            var searchTimeout;
             els.searchInput.addEventListener('input', function() {
                 clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => performSearch(this.value), 300);
+                searchTimeout = setTimeout(function() { performSearch(els.searchInput.value); }, 300);
             });
-
             els.searchInput.addEventListener('blur', function() {
-                setTimeout(() => els.searchResults.classList.remove('active'), 200);
+                setTimeout(function() { els.searchResults.classList.remove('active'); }, 200);
             });
-
             els.searchInput.addEventListener('focus', function() {
-                if (this.value.trim()) {
-                    performSearch(this.value);
-                }
+                if (this.value.trim()) performSearch(this.value);
             });
 
-            // Keyboard shortcut: Ctrl+R to refresh
             document.addEventListener('keydown', function(e) {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
                     e.preventDefault();
@@ -1522,17 +1515,10 @@
                 }
             });
 
-            // Hide loader
-            setTimeout(() => {
-                els.loader.classList.add('hidden');
-            }, 500);
-
+            setTimeout(function() { els.loader.classList.add('hidden'); }, 500);
             console.log('⚽ AURAEN News frontend initialized');
-            console.log(`📡 API: ${API_BASE}`);
-            console.log(`📊 Connected to backend`);
         }
 
-        // ===== START =====
         document.addEventListener('DOMContentLoaded', init);
 
         // Expose functions globally
