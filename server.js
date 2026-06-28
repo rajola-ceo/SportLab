@@ -314,7 +314,10 @@ function sendErr(res, status, source, error) {
 // ═══════════════════════════════════════════════════════════════
 
 function afHeaders() {
-  return { 'x-apisports-key': process.env.API_FOOTBALL_KEY || '' };
+  return {
+    "x-rapidapi-key": process.env.API_FOOTBALL_KEY,
+    "x-rapidapi-host": "v3.football.api-sports.io"
+  };
 }
 
 async function afGet(path) {
