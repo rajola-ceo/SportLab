@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURAEN News - Football Streaming</title>
+    <meta name="description" content="Watch live football matches for free on AURAEN News. Premier League, Champions League, La Liga and more.">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <link rel="shortcut icon" href="assets/images/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <!-- Loader -->
+    <div id="loader" class="loader">
+        <div class="loader-spinner"></div>
+        <p>Loading AURAEN News...</p>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav-container">
+            <div class="logo">
+                <a href="/">
+                    <span class="logo-icon">⚽</span>
+                    <span class="logo-text">AURAEN</span>
+                    <span class="logo-sub">News</span>
+                </a>
+            </div>
+            
+            <div class="nav-links" id="navLinks">
+                <a href="#live" class="active">Live</a>
+                <a href="#schedule">Schedule</a>
+                <a href="#results">Results</a>
+            </div>
+            
+            <div class="nav-actions">
+                <span id="liveCount" class="live-badge">● 0 Live</span>
+                <button class="btn-refresh" id="refreshBtn" title="Refresh Matches">
+                    <span>↻</span>
+                </button>
+                <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </nav>
+        
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-container">
+                <span id="currentTime">Loading...</span>
+                <span class="status-divider">|</span>
+                <span id="matchCount">0 matches</span>
+                <span class="status-divider">|</span>
+                <span class="status-domain">🔒 AURAEN.news</span>
+                <span class="status-divider">|</span>
+                <span class="status-adblock">🛡️ Ad-Free</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Hero Section -->
+            <section class="hero-section">
+                <h1>⚽ Live Football Streaming</h1>
+                <p>Watch all the biggest matches for free. No ads, no interruptions.</p>
+            </section>
+
+            <!-- League Filters -->
+            <div class="filter-section">
+                <div class="filter-tabs" id="filterTabs">
+                    <button class="filter-btn active" data-filter="all">All Matches</button>
+                    <button class="filter-btn" data-filter="premier-league">🏴 Premier League</button>
+                    <button class="filter-btn" data-filter="laliga">🇪🇸 La Liga</button>
+                    <button class="filter-btn" data-filter="bundesliga">🇩🇪 Bundesliga</button>
+                    <button class="filter-btn" data-filter="serie-a">🇮🇹 Serie A</button>
+                    <button class="filter-btn" data-filter="ligue-1">🇫🇷 Ligue 1</button>
+                    <button class="filter-btn" data-filter="champions-league">🏆 Champions League</button>
+                    <button class="filter-btn" data-filter="world-cup">🌍 World Cup</button>
+                </div>
+            </div>
+
+            <!-- Matches Grid -->
+            <div class="matches-section">
+                <div class="section-header">
+                    <h2>📺 Live & Upcoming Matches</h2>
+                    <span class="section-badge" id="matchCountBadge">0 matches</span>
+                </div>
+                <div class="matches-grid" id="matchesGrid">
+                    <!-- Matches loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <h4>AURAEN News</h4>
+                    <p>Free football streaming. Watch live matches from around the world.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="#privacy">Privacy Policy</a>
+                    <a href="#contact">Contact</a>
+                    <a href="#dmca">DMCA</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 AURAEN News. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/adblocker.js"></script>
+    <script src="js/scraper.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
