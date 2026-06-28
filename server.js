@@ -768,3 +768,19 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'SportLab API is running 🚀',
+    endpoints: [
+      '/live-matches',
+      '/fixtures',
+      '/standings',
+      '/lineups',
+      '/stats',
+      '/news',
+      '/highlights',
+      '/streams'
+    ]
+  });
+});
