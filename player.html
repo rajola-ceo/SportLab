@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURAEN News - Watch Match</title>
+    <link rel="stylesheet" href="css/player.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="shortcut icon" href="assets/images/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header player-header">
+        <nav class="nav-container">
+            <div class="logo">
+                <a href="/">
+                    <span class="logo-icon">⚽</span>
+                    <span class="logo-text">AURAEN</span>
+                    <span class="logo-sub">News</span>
+                </a>
+            </div>
+            <a href="/" class="back-btn">← Back to Matches</a>
+        </nav>
+    </header>
+
+    <!-- Player Content -->
+    <main class="player-main">
+        <div class="player-container">
+            <!-- Match Info -->
+            <div class="match-info" id="matchInfo">
+                <h2 id="matchTitle">Loading match...</h2>
+                <p id="matchLeague"></p>
+            </div>
+
+            <!-- Video Player -->
+            <div class="video-wrapper" id="videoWrapper">
+                <div class="player-placeholder" id="playerPlaceholder">
+                    <div class="loading-spinner"></div>
+                    <p>Loading stream...</p>
+                </div>
+                <iframe id="videoPlayer" 
+                        class="video-player" 
+                        src="" 
+                        allowfullscreen 
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                        loading="lazy">
+                </iframe>
+                <!-- Ad Blocker Overlay -->
+                <div class="ad-blocker-overlay" id="adBlockerOverlay">
+                    <div class="ad-blocked">
+                        <span class="shield-icon">🛡️</span>
+                        <p>Ad blocked successfully</p>
+                        <small>Enjoy the match without interruptions</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="player-controls">
+                <button class="control-btn" id="fullscreenBtn" title="Fullscreen">
+                    ⛶
+                </button>
+                <button class="control-btn" id="refreshStreamBtn" title="Refresh Stream">
+                    ↻
+                </button>
+                <span class="stream-status" id="streamStatus">● Live</span>
+            </div>
+
+            <!-- Match Details -->
+            <div class="match-details" id="matchDetails">
+                <div class="detail-section">
+                    <h4>Match Information</h4>
+                    <p id="matchDetailLeague"></p>
+                    <p id="matchDetailTime"></p>
+                </div>
+                <div class="detail-section">
+                    <h4>Alternative Streams</h4>
+                    <div id="alternativeStreams">
+                        <!-- Alternative stream links -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/adblocker.js"></script>
+    <script src="js/player.js"></script>
+</body>
+</html>
