@@ -784,3 +784,49 @@ app.get('/', (req, res) => {
     ]
   });
 });
+app.get('/health/apis', async (req, res) => {
+  const results = {};
+
+  // 1. API-Football
+  try {
+    const r = await fetch('https://v3.football.api-sports.io/status', {
+      headers: {
+        'x-apisports-key': process.env.API_FOOTBALL_KEY
+      }
+    });
+    results.apiFootball = {
+      status: r.status,
+      ok: r.ok
+    };
+  } catch (e) {
+    results.apiFootball = { ok: false, error: e.message };
+  }
+
+  // 2. SportMonks
+  try {
+    const r = await fetch(`https://api.sportmonks.com/v3/core/initializers?api_token=${process.env.SPORTMONKS_KEY}`);
+    results.sportMonks = {
+      status: r.status,
+      ok: r.ok
+    };
+  } catch (e) {
+    results.sportMonks = { ok: false, error: e.message };
+  }
+
+  // 3. YouTube API
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=football&maxResults=1&key=${process.env.YOUTUBE_KEY}`;
+    const r = await fetch(url);
+    results.youtube = {
+      status: r.status,
+      ok: r.ok
+    };
+  } catch (e) {
+    results.youtube = { ok: false, error: e.message };
+  }
+
+  res.json({
+    success: true,
+    results
+  });
+});
